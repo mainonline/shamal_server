@@ -1,8 +1,9 @@
-import { Model, DataTypes, CreationOptional, InferAttributes, InferCreationAttributes } from "sequelize";
+import {Model, DataTypes, CreationOptional, InferAttributes, InferCreationAttributes, ForeignKey} from "sequelize";
 import db from "../index"
-import Center from "../center.model";
+import Center, {CenterModel} from "../center.model";
 import Role from "./role.model";
 import UserRole from "./userRole.model";
+import {validatePassword} from "../../helpers/validation";
 
 
 export interface UserModel
@@ -14,6 +15,9 @@ export interface UserModel
     img?: string;
     phone?: string;
     layout?: string;
+    roles?: any[];
+    centerId: ForeignKey<CenterModel["id"]>
+
 }
 
 const User = db.define<UserModel>('user',{
@@ -58,11 +62,12 @@ const User = db.define<UserModel>('user',{
     name: {type: DataTypes.STRING, defaultValue: ''},
     img: {type: DataTypes.STRING, defaultValue: ''},
     phone: {type: DataTypes.STRING, defaultValue: ''},
-    layout: {type: DataTypes.STRING, defaultValue: 'default'}
+    layout: {type: DataTypes.STRING, defaultValue: 'default'},
+    centerId: {type: DataTypes.INTEGER, allowNull: false}
 });
 
-User.hasOne(Center);
-Center.belongsTo(User);
+Center.hasMany(User);
+User.belongsTo(Center);
 
 User.hasMany(UserRole);
 UserRole.belongsTo(User);

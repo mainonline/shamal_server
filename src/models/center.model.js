@@ -9,6 +9,5 @@ const Center = index_1.default.define('center', {
     id: { type: sequelize_1.DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     name: { type: sequelize_1.DataTypes.STRING, defaultValue: 'ADMINISTRATOR', allowNull: false },
     description: { type: sequelize_1.DataTypes.STRING, defaultValue: '' },
-    userId: sequelize_1.DataTypes.INTEGER
 });
 exports.default = Center;

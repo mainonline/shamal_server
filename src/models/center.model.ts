@@ -7,14 +7,12 @@ export interface CenterModel extends Model<InferAttributes<CenterModel>, InferCr
     id: CreationOptional<number>;
     name: string;
     description?: string;
-    userId?: ForeignKey<UserModel["id"]>;
 }
 
 const Center = db.define<CenterModel>('center',{
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
     name: {type: DataTypes.STRING, defaultValue: 'ADMINISTRATOR', allowNull: false},
     description: {type: DataTypes.STRING, defaultValue: ''},
-    userId: DataTypes.INTEGER
 });
 
 

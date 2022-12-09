@@ -50,10 +50,11 @@ const User = index_1.default.define('user', {
     name: { type: sequelize_1.DataTypes.STRING, defaultValue: '' },
     img: { type: sequelize_1.DataTypes.STRING, defaultValue: '' },
     phone: { type: sequelize_1.DataTypes.STRING, defaultValue: '' },
-    layout: { type: sequelize_1.DataTypes.STRING, defaultValue: 'default' }
+    layout: { type: sequelize_1.DataTypes.STRING, defaultValue: 'default' },
+    centerId: { type: sequelize_1.DataTypes.INTEGER, allowNull: false }
 });
-User.hasOne(center_model_1.default);
-center_model_1.default.belongsTo(User);
+center_model_1.default.hasMany(User);
+User.belongsTo(center_model_1.default);
 User.hasMany(userRole_model_1.default);
 userRole_model_1.default.belongsTo(User);
 User.belongsToMany(role_model_1.default, { through: userRole_model_1.default });

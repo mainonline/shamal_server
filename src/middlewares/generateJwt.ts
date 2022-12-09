@@ -5,7 +5,8 @@ export interface UserToken {
     id: number;
     email: string;
     role: string;
-    layout: string;
+    center: number;
+    layout?: string;
 }
 
 

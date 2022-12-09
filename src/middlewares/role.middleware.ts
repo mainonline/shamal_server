@@ -14,29 +14,60 @@ export const roleCheck = (role: string) => {
 
             const decoded = <UserToken>jwt.verify(token, process.env.SECRET_KEY as string);
 
+            if (decoded.role !== process.env.SUPER_ADMIN_ROLE) {
 
+                if (role === process.env.SUPER_ADMIN_ROLE && decoded.role !== process.env.SUPER_ADMIN_ROLE) {
+                    return res.status(403).json({message: "Only for super admin allowed!"})
+                }
 
-            // const isRolesValid = () => {
-                // if (roles && decoded.roles && roles.length && decoded.roles.length && roles.length >= decoded.roles.length) {
-                //     let decodedRoles:string[] = [];
-                //     decodedRoles = Array.from(decoded.roles)
-                //     roles.map((role: string) => {return decodedRoles.includes(role)})
-                    // for (let i = 0; i < roles.length; i++) {
-                    //     decoded.roles.includes(roles[i])
-                    // }
-            //     }
-            // }
-            if (decoded.role !== role) {
-                return res.status(403).json({message: "You are not allowed!"})
+                if (role === process.env.ADMIN_ROLE &&
+                    (
+                        decoded.role !== process.env.ADMIN_ROLE ||
+                        decoded.role !== process.env.SUPER_ADMIN_ROLE
+                    )
+                ) {
+                    return res.status(403).json({message: "Only for admin allowed!"})
+                }
+
+                if (role === process.env.MANAGER_ROLE &&
+                    (
+                        decoded.role !== process.env.MANAGER_ROLE ||
+                        decoded.role !== process.env.ADMIN_ROLE ||
+                        decoded.role !== process.env.SUPER_ADMIN_ROLE
+                    )
+                ) {
+                    return res.status(403).json({message: "Only for admin and manager allowed!"})
+                }
+
+                if (role === process.env.TEACHER_ROLE &&
+                    (
+                        decoded.role === process.env.TEACHER_ROLE ||
+                        decoded.role !== process.env.MANAGER_ROLE ||
+                        decoded.role !== process.env.ADMIN_ROLE ||
+                        decoded.role !== process.env.SUPER_ADMIN_ROLE
+                    )
+                ) {
+                    console.log("\n");
+                    console.log("TRUE TEACHER IF");
+                    console.log("\n");
+                    return res.status(403).json({message: "Only for admin, manager and teacher allowed!"})
+                }
+
+                if (role === process.env.STUDENT_ROLE &&
+                    (
+                        decoded.role !== process.env.STUDENT_ROLE ||
+                        decoded.role !== process.env.TEACHER_ROLE ||
+                        decoded.role !== process.env.MANAGER_ROLE ||
+                        decoded.role !== process.env.ADMIN_ROLE ||
+                        decoded.role !== process.env.SUPER_ADMIN_ROLE
+                    )
+                ) {
+                    return res.status(403).json({message: "Only for admin, manager, teacher and student allowed!"})
+                }
             }
-
-
-            // console.log("\n");
-            // console.log(decoded);
-            // console.log("\n");
             next();
         } catch (error) {
-            res.status(401).json({message: "Not authorized"})
+            res.status(401).json({message: "Not authorized!"})
         }
     }
 
