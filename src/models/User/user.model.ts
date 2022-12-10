@@ -3,7 +3,6 @@ import db from "../index"
 import Center, {CenterModel} from "../center.model";
 import Role from "./role.model";
 import UserRole from "./userRole.model";
-import {validatePassword} from "../../helpers/validation";
 
 
 export interface UserModel
@@ -17,7 +16,6 @@ export interface UserModel
     layout?: string;
     roles?: any[];
     centerId: ForeignKey<CenterModel["id"]>
-
 }
 
 const User = db.define<UserModel>('user',{
@@ -28,36 +26,12 @@ const User = db.define<UserModel>('user',{
         allowNull: false,
         validate: {
             notNull: true,
-            isEmail: true
+            isEmail: true,
         }
     },
     password: {
         type: DataTypes.STRING,
-        allowNull: false,
-        validate: {
-            notNull: true,
-            containsSpecialChar(value:string) {
-                const specialChars = /[ `!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~]/;
-                const uppercaseChars = /[A-Z]/;
-                const lowercaseChars = /[a-z]/;
-                const numericChars = /\d/;
-                if (value.length < 8) {
-                    throw new Error('length of password more than 8');
-                }
-                if (!lowercaseChars.test(value)) {
-                    throw new Error('should contain lowercase char');
-                }
-                if (!uppercaseChars.test(value)) {
-                    throw new Error('should contain uppercase char');
-                }
-                if (!numericChars.test(value)) {
-                    throw new Error('should contain numeric char');
-                }
-                if (!specialChars.test(value)) {
-                    throw new Error('should contain special char');
-                }
-            },
-        }
+        allowNull: false
     },
     name: {type: DataTypes.STRING, defaultValue: ''},
     img: {type: DataTypes.STRING, defaultValue: ''},

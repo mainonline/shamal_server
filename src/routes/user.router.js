@@ -14,5 +14,5 @@ router.get('/', (0, role_middleware_1.roleCheck)(process.env.ADMIN_ROLE), user_c
 router.get('/:id', (0, role_middleware_1.roleCheck)(process.env.ADMIN_ROLE), user_controller_1.getOneUser);
 router.put('/:id', (0, role_middleware_1.roleCheck)(process.env.ADMIN_ROLE), user_controller_1.updateUser);
 router.patch('/:id', (0, role_middleware_1.roleCheck)(process.env.ADMIN_ROLE), user_controller_1.updateUser);
-// router.get('/register', roleCheck(process.env.ADMIN_ROLE as string), registration);
+router.delete('/:id', (0, role_middleware_1.roleCheck)(process.env.ADMIN_ROLE), user_controller_1.deleteUser);
 exports.default = router;

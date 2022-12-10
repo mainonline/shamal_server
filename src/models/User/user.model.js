@@ -16,36 +16,12 @@ const User = index_1.default.define('user', {
         allowNull: false,
         validate: {
             notNull: true,
-            isEmail: true
+            isEmail: true,
         }
     },
     password: {
         type: sequelize_1.DataTypes.STRING,
-        allowNull: false,
-        validate: {
-            notNull: true,
-            containsSpecialChar(value) {
-                const specialChars = /[ `!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~]/;
-                const uppercaseChars = /[A-Z]/;
-                const lowercaseChars = /[a-z]/;
-                const numericChars = /\d/;
-                if (value.length < 8) {
-                    throw new Error('length of password more than 8');
-                }
-                if (!lowercaseChars.test(value)) {
-                    throw new Error('should contain lowercase char');
-                }
-                if (!uppercaseChars.test(value)) {
-                    throw new Error('should contain uppercase char');
-                }
-                if (!numericChars.test(value)) {
-                    throw new Error('should contain numeric char');
-                }
-                if (!specialChars.test(value)) {
-                    throw new Error('should contain special char');
-                }
-            },
-        }
+        allowNull: false
     },
     name: { type: sequelize_1.DataTypes.STRING, defaultValue: '' },
     img: { type: sequelize_1.DataTypes.STRING, defaultValue: '' },

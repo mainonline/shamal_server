@@ -15,9 +15,15 @@ declare const process : {
         DB_PASSWORD: string,
         DB_HOST: string,
         DB_PORT: number,
+        ACCESS_SECRET_KEY: string,
+        REFRESH_SECRET_KEY: string,
+        SUPER_ADMIN_ROLE: string,
+        ADMIN_ROLE: string,
+        TEACHER_ROLE: string,
+        MANAGER_ROLE: string,
+        STUDENT_ROLE: string
     }
 }
-
 
 const configDB: ConfigTs = {
     development: {

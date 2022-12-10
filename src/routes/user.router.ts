@@ -1,6 +1,14 @@
 import express from "express";
 const router = express.Router();
-import {createUser, getAllUsers, getOneUser, login, registration, updateUser} from "../controllers/user.controller"
+import {
+    createUser,
+    deleteUser,
+    getAllUsers,
+    getOneUser,
+    login,
+    registration,
+    updateUser
+} from "../controllers/user.controller";
 import {roleCheck} from "../middlewares/role.middleware";
 
 router.post('/register', registration);
@@ -10,6 +18,6 @@ router.get('/', roleCheck(process.env.ADMIN_ROLE as string), getAllUsers);
 router.get('/:id', roleCheck(process.env.ADMIN_ROLE as string), getOneUser);
 router.put('/:id', roleCheck(process.env.ADMIN_ROLE as string), updateUser);
 router.patch('/:id', roleCheck(process.env.ADMIN_ROLE as string), updateUser);
-// router.get('/register', roleCheck(process.env.ADMIN_ROLE as string), registration);
+router.delete('/:id', roleCheck(process.env.ADMIN_ROLE as string), deleteUser);
 
 export default router;

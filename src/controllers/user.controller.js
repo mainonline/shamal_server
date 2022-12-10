@@ -12,21 +12,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOneUser = exports.getAllUsers = exports.updateUser = exports.login = exports.createUser = exports.registration = void 0;
+exports.deleteUser = exports.getOneUser = exports.getAllUsers = exports.updateUser = exports.createUser = exports.login = exports.registration = void 0;
 const user_model_1 = __importDefault(require("../models/User/user.model"));
 const api_error_1 = require("../error/api.error");
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const center_model_1 = __importDefault(require("../models/center.model"));
 const role_model_1 = __importDefault(require("../models/User/role.model"));
-const generateJwt_1 = __importDefault(require("../middlewares/generateJwt"));
+const token_helper_1 = require("../helpers/token.helper");
 const userRole_model_1 = __importDefault(require("../models/User/userRole.model"));
 const validation_1 = require("../helpers/validation");
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const registration = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password, name, centerName, description, layout } = req.body;
         if (!email || !password) {
             return next(api_error_1.ApiError.badRequest('Please provide email and password'));
         }
+        (0, validation_1.validatePassword)(password);
         const candidate = yield user_model_1.default.findOne({ where: { email } });
         if (candidate) {
             return next(api_error_1.ApiError.badRequest('UserModel with this email already exists'));
@@ -54,6 +56,8 @@ const registration = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         const role = yield role_model_1.default.findOne({
             where: Object.assign({}, roleInsertData)
         });
+        let roleInfo = [];
+        roleInfo.push(roleInsertData.name);
         const userRoleInsertData = {
             userId: user.id,
             roleId: role ? role.id : undefined,
@@ -63,42 +67,22 @@ const registration = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         const insertUserJwt = {
             id: user.id,
             email: user.email,
-            role: roleInsertData.name,
+            roles: roleInfo,
             layout: layout,
             center: center.id
         };
-        const token = (0, generateJwt_1.default)(insertUserJwt);
-        return res.json(token);
+        const insertUserJwtAccess = {
+            email: user.email,
+        };
+        const refreshToken = (0, token_helper_1.generateRefreshToken)(insertUserJwt);
+        const accessToken = (0, token_helper_1.generateAccessToken)(insertUserJwtAccess);
+        return res.send({ accessToken, refreshToken });
     }
     catch (e) {
         return res.status(404).json(e.message);
     }
 });
 exports.registration = registration;
-const createUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { email, password, centerId } = req.body;
-        if (!email || !password) {
-            return next(api_error_1.ApiError.badRequest('Please  provide email and password'));
-        }
-        const candidate = yield user_model_1.default.findOne({ where: { email } });
-        if (candidate) {
-            return next(api_error_1.ApiError.badRequest('UserModel with this email already exists'));
-        }
-        const hashPassword = yield bcrypt_1.default.hash(password, 5);
-        const userInsertData = {
-            email: email,
-            password: hashPassword,
-            centerId: centerId
-        };
-        const user = yield user_model_1.default.create(Object.assign({}, userInsertData));
-        return res.json(user);
-    }
-    catch (e) {
-        return res.status(404).json(e.message);
-    }
-});
-exports.createUser = createUser;
 const login = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password } = req.body;
@@ -116,21 +100,70 @@ const login = (req, res, next) => __awaiter(void 0, void 0, void 0, function* ()
         const insertUserJwt = {
             id: user.id,
             email: user.email,
-            role: user.roles ? user.roles[0].name : "",
+            roles: user.roles ? user.roles : [],
             layout: user.layout,
             center: user.centerId
         };
-        const token = (0, generateJwt_1.default)(insertUserJwt);
-        return res.json(token);
+        const insertUserJwtAccess = {
+            email: user.email,
+        };
+        const refreshToken = (0, token_helper_1.generateRefreshToken)(insertUserJwt);
+        const accessToken = (0, token_helper_1.generateAccessToken)(insertUserJwtAccess);
+        return res.send({ accessToken, refreshToken });
     }
     catch (e) {
         return res.status(404).json(e.message);
     }
 });
 exports.login = login;
+const createUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const { email, password, roles } = req.body;
+        if (!email || !password) {
+            return next(api_error_1.ApiError.badRequest('Please  provide email and password'));
+        }
+        (0, validation_1.validatePassword)(password);
+        const candidate = yield user_model_1.default.findOne({ where: { email } });
+        if (candidate) {
+            return next(api_error_1.ApiError.badRequest('UserModel with this email already exists'));
+        }
+        let token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split(' ')[1];
+        if (!token)
+            return res.status(401).json({ message: "Not authorized" });
+        const decoded = jsonwebtoken_1.default.verify(token, process.env.REFRESH_SECRET_KEY);
+        const hashPassword = yield bcrypt_1.default.hash(password, 5);
+        const userInsertData = {
+            email: email,
+            password: hashPassword,
+            centerId: decoded.center
+        };
+        const user = yield user_model_1.default.create(Object.assign({}, userInsertData));
+        if (roles) {
+            yield Promise.all(roles.map((roleName) => __awaiter(void 0, void 0, void 0, function* () {
+                yield role_model_1.default.findOrCreate({
+                    where: { name: roleName, centerId: decoded.center },
+                });
+                const role = yield role_model_1.default.findOne({
+                    where: { name: roleName, centerId: decoded.center }
+                });
+                yield userRole_model_1.default.create({
+                    userId: user.id,
+                    roleId: role ? role.id : undefined,
+                    centerId: decoded.center
+                });
+            })));
+        }
+        return res.json(user);
+    }
+    catch (e) {
+        return res.status(404).json(e.message);
+    }
+});
+exports.createUser = createUser;
 const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { name, email, password, img, phone, layout } = req.body;
+        const { name, email, password, img, phone, layout, roles, centerId } = req.body;
         const id = req.params.id;
         (0, validation_1.validatePassword)(password);
         const hashPassword = yield bcrypt_1.default.hash(password, 5);
@@ -140,9 +173,18 @@ const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             password: hashPassword,
             img: img,
             phone: phone,
-            layout: layout
+            layout: layout,
         };
         const user = yield user_model_1.default.update(Object.assign({}, userUpdateData), { where: { id }, returning: true });
+        if (roles) {
+            yield Promise.all(roles.map((roleName) => __awaiter(void 0, void 0, void 0, function* () {
+                yield role_model_1.default.findOrCreate({ where: { name: roleName, centerId: centerId } });
+                const foundRole = yield role_model_1.default.findOne({ where: { name: roleName, centerId: centerId } });
+                yield userRole_model_1.default.findOrCreate({
+                    where: { userId: id, roleId: foundRole ? foundRole.id : undefined, centerId: centerId }
+                });
+            })));
+        }
         return res.json(user);
     }
     catch (e) {
@@ -182,3 +224,31 @@ const getOneUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.getOneUser = getOneUser;
+const deleteUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _b;
+    try {
+        const id = req.params.id;
+        let token = (_b = req.headers.authorization) === null || _b === void 0 ? void 0 : _b.split(' ')[1];
+        if (!token)
+            return res.status(401).json({ message: "Not authorized" });
+        const decoded = jsonwebtoken_1.default.verify(token, process.env.REFRESH_SECRET_KEY);
+        if (decoded.id === parseInt(id)) {
+            return next(api_error_1.ApiError.badRequest('Can not delete own account'));
+        }
+        const user = yield user_model_1.default.findOne({
+            where: { id }
+        });
+        if (!user) {
+            return next(api_error_1.ApiError.badRequest('User with this id not found'));
+        }
+        yield user_model_1.default.destroy({
+            where: { id },
+        });
+        yield userRole_model_1.default.destroy({ where: { userId: id } });
+        return res.status(200).json({ message: "deleted" });
+    }
+    catch (e) {
+        return res.status(404).json(e.message);
+    }
+});
+exports.deleteUser = deleteUser;

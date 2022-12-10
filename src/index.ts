@@ -6,11 +6,11 @@ import db from "./models/index";
 
 dotenv.config();
 
-if (!process.env.PORT) {
+if (!process.env.DB_PORT) {
     process.exit(1);
 }
 
-const PORT: number = parseInt(process.env.PORT as string, 10);
+const PORT: number = parseInt(process.env.DB_PORT as string, 10);
 
 const app = express();
 app.use(cors());

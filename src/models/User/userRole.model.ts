@@ -7,6 +7,7 @@ import Center, {CenterModel} from "../center.model";
 
 export interface UserRoleModel extends Model<InferAttributes<UserRoleModel>, InferCreationAttributes<UserRoleModel>> {
     id: CreationOptional<number>;
+    role?: any,
     roleId: ForeignKey<RoleModel["id"]>
     userId: ForeignKey<UserModel["id"]>
     centerId?: ForeignKey<CenterModel["id"]>

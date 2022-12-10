@@ -41,10 +41,10 @@ const cors_1 = __importDefault(require("cors"));
 const index_1 = __importDefault(require("./routes/index"));
 const index_2 = __importDefault(require("./models/index"));
 dotenv.config();
-if (!process.env.PORT) {
+if (!process.env.DB_PORT) {
     process.exit(1);
 }
-const PORT = parseInt(process.env.PORT, 10);
+const PORT = parseInt(process.env.DB_PORT, 10);
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());

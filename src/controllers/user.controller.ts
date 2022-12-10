@@ -1,13 +1,14 @@
 import {NextFunction, Request, Response} from "express";
-import {CreationAttributes, ForeignKey, IncludeOptions, InferAttributes} from "sequelize";
+import {CreationAttributes, Sequelize, Transaction} from "sequelize";
 import User, {UserModel} from "../models/User/user.model"
 import {ApiError} from "../error/api.error";
 import bcrypt from "bcrypt";
 import Center, {CenterModel} from "../models/center.model";
 import Role, {RoleModel} from "../models/User/role.model";
-import generateJwt, {UserToken} from "../middlewares/generateJwt";
+import {generateAccessToken, generateRefreshToken, UserAccessToken, UserToken} from "../helpers/token.helper";
 import UserRole, {UserRoleModel} from "../models/User/userRole.model";
 import {validatePassword} from "../helpers/validation";
+import jwt from "jsonwebtoken";
 
 export const registration = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -16,6 +17,8 @@ export const registration = async (req: Request, res: Response, next: NextFuncti
         if (!email || !password) {
             return next(ApiError.badRequest('Please provide email and password'));
         }
+        validatePassword(password);
+
         const candidate = await User.findOne({where: {email}});
         if (candidate) {
             return next(ApiError.badRequest('UserModel with this email already exists'));
@@ -48,6 +51,8 @@ export const registration = async (req: Request, res: Response, next: NextFuncti
             where: {...roleInsertData}
         })
 
+        let roleInfo:string[] = [];
+        roleInfo.push(roleInsertData.name);
 
         const userRoleInsertData: CreationAttributes<UserRoleModel> = {
             userId: user.id,
@@ -59,39 +64,18 @@ export const registration = async (req: Request, res: Response, next: NextFuncti
         const insertUserJwt: UserToken = {
             id: user.id,
             email: user.email,
-            role: roleInsertData.name,
+            roles: roleInfo,
             layout: layout,
             center: center.id
         }
-        const token = generateJwt(insertUserJwt);
 
-        return res.json(token);
-    } catch (e:any) {
-        return res.status(404).json(e.message)
-    }
-}
-
-export const createUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const {email, password, centerId} = req.body;
-
-        if (!email || !password) {
-            return next(ApiError.badRequest('Please  provide email and password'));
+        const insertUserJwtAccess: UserAccessToken = {
+            email: user.email,
         }
-        const candidate = await User.findOne({where: {email}});
-        if (candidate) {
-            return next(ApiError.badRequest('UserModel with this email already exists'));
-        }
+        const refreshToken = generateRefreshToken(insertUserJwt);
+        const accessToken = generateAccessToken(insertUserJwtAccess);
 
-        const hashPassword = await bcrypt.hash(password, 5);
-        const userInsertData: CreationAttributes<UserModel> = {
-            email: email,
-            password: hashPassword,
-            centerId: centerId
-        };
-        const user = await User.create({...userInsertData});
-
-        return res.json(user)
+        return res.send({accessToken, refreshToken});
     } catch (e:any) {
         return res.status(404).json(e.message)
     }
@@ -118,21 +102,80 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         const insertUserJwt: UserToken = {
             id: user.id,
             email: user.email,
-            role: user.roles ? user.roles[0].name : "",
+            roles: user.roles ? user.roles : [],
             layout: user.layout,
             center: user.centerId
         }
-        const token = generateJwt(insertUserJwt);
+        const insertUserJwtAccess: UserAccessToken = {
+            email: user.email,
+        }
+        const refreshToken = generateRefreshToken(insertUserJwt);
+        const accessToken = generateAccessToken(insertUserJwtAccess);
 
-        return res.json(token);
+        return res.send({accessToken, refreshToken});
     } catch (e:any) {
         return res.status(404).json(e.message)
     }
 }
 
+
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {email, password, roles } = req.body;
+
+        if (!email || !password) {
+            return next(ApiError.badRequest('Please  provide email and password'));
+        }
+        validatePassword(password);
+
+        const candidate = await User.findOne({where: {email}});
+        if (candidate) {
+            return next(ApiError.badRequest('UserModel with this email already exists'));
+        }
+
+
+        let token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({message: "Not authorized"});
+        const decoded = <UserToken>jwt.verify(token, process.env.REFRESH_SECRET_KEY as string);
+
+        const hashPassword = await bcrypt.hash(password, 5);
+        const userInsertData: CreationAttributes<UserModel> = {
+            email: email,
+            password: hashPassword,
+            centerId: decoded.center
+        };
+        const user = await User.create({...userInsertData});
+
+        if (roles) {
+            await Promise.all(
+                roles.map(async (roleName:string) => {
+                    await Role.findOrCreate({
+                        where: {name: roleName, centerId: decoded.center},
+                    });
+
+                    const role = await Role.findOne({
+                        where: {name: roleName, centerId: decoded.center}
+                    });
+
+                    await UserRole.create({
+                        userId: user.id,
+                        roleId: role ? role.id : undefined,
+                        centerId: decoded.center
+                    });
+                })
+            )
+        }
+
+        return res.json(user)
+    } catch (e:any) {
+        return res.status(404).json(e.message)
+    }
+}
+
+
 export const updateUser = async (req: Request<{id: string}>, res: Response) => {
     try {
-        const {name, email, password, img, phone, layout} = req.body;
+        const {name, email, password, img, phone, layout, roles, centerId} = req.body;
         const id = req.params.id;
 
         validatePassword(password);
@@ -145,10 +188,23 @@ export const updateUser = async (req: Request<{id: string}>, res: Response) => {
             password: hashPassword,
             img: img,
             phone: phone,
-            layout: layout
+            layout: layout,
         };
 
         const user = await User.update({...userUpdateData}, {where: {id}, returning: true});
+
+
+        if (roles) {
+            await Promise.all(
+                roles.map(async (roleName:string) => {
+                    await Role.findOrCreate({where: {name: roleName, centerId: centerId}});
+                    const foundRole = await Role.findOne({where: {name: roleName, centerId: centerId}});
+                    await UserRole.findOrCreate({
+                        where: {userId: id, roleId: foundRole ? foundRole.id : undefined, centerId: centerId}
+                    });
+                })
+            )
+        }
 
         return res.json(user);
     } catch (e:any) {
@@ -185,6 +241,37 @@ export const getOneUser = async (req: Request<{id: string}>, res: Response) => {
         });
 
         return res.json(users);
+    } catch (e:any) {
+        return res.status(404).json(e.message)
+    }
+}
+
+
+export const deleteUser = async (req: Request<{id: string}>, res: Response, next: NextFunction) => {
+    try {
+        const id = req.params.id;
+        let token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({message: "Not authorized"});
+        const decoded = <UserToken>jwt.verify(token, process.env.REFRESH_SECRET_KEY as string);
+
+        if (decoded.id === parseInt(id)) {
+            return next(ApiError.badRequest('Can not delete own account'));
+        }
+
+        const user = await User.findOne({
+            where: {id}
+        });
+
+        if (!user) {
+            return next(ApiError.badRequest('User with this id not found'));
+        }
+        await User.destroy({
+            where: {id},
+        });
+
+        await UserRole.destroy({where: {userId: id}})
+
+        return res.status(200).json({message: "deleted"});
     } catch (e:any) {
         return res.status(404).json(e.message)
     }
