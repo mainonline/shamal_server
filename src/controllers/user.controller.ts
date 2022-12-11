@@ -1,5 +1,5 @@
 import {NextFunction, Request, Response} from "express";
-import {CreationAttributes, Sequelize, Transaction} from "sequelize";
+import {CreationAttributes} from "sequelize";
 import User, {UserModel} from "../models/User/user.model"
 import {ApiError} from "../error/api.error";
 import bcrypt from "bcrypt";
@@ -98,11 +98,18 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         if (!validPassword) {
             return next(ApiError.internal('Not valid password'));
         }
+        let usersRoles: string[] = [];
+
+        if (user.roles) {
+            user.roles.map(roleName => {
+                usersRoles.push(roleName.name);
+            })
+        }
 
         const insertUserJwt: UserToken = {
             id: user.id,
             email: user.email,
-            roles: user.roles ? user.roles : [],
+            roles: user.roles ? usersRoles : [],
             layout: user.layout,
             center: user.centerId
         }
@@ -175,11 +182,14 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
 
 export const updateUser = async (req: Request<{id: string}>, res: Response) => {
     try {
-        const {name, email, password, img, phone, layout, roles, centerId} = req.body;
+        const {name, email, password, img, phone, layout, roles} = req.body;
         const id = req.params.id;
 
-        validatePassword(password);
+        let token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({message: "Not authorized"});
+        const decoded = <UserToken>jwt.verify(token, process.env.REFRESH_SECRET_KEY as string);
 
+        validatePassword(password);
         const hashPassword = await bcrypt.hash(password, 5);
 
         const userUpdateData: CreationAttributes<UserModel> = {
@@ -197,11 +207,23 @@ export const updateUser = async (req: Request<{id: string}>, res: Response) => {
         if (roles) {
             await Promise.all(
                 roles.map(async (roleName:string) => {
-                    await Role.findOrCreate({where: {name: roleName, centerId: centerId}});
-                    const foundRole = await Role.findOne({where: {name: roleName, centerId: centerId}});
+                    await Role.findOrCreate({where: {name: roleName, centerId: decoded.center}});
+                    const foundRole = await Role.findOne({where: {name: roleName, centerId: decoded.center}});
                     await UserRole.findOrCreate({
-                        where: {userId: id, roleId: foundRole ? foundRole.id : undefined, centerId: centerId}
+                        where: {userId: id, roleId: foundRole ? foundRole.id : undefined, centerId: decoded.center}
                     });
+                })
+            )
+        }
+
+        const usersRoles = await UserRole.findAll({where: {userId: id}, include: [Role]});
+
+        if (usersRoles) {
+            await Promise.all(
+                usersRoles.map(async (singleRole: any) => {
+                    if (!roles.includes(singleRole.role.name)) {
+                        await UserRole.destroy({where: {roleId: singleRole.roleId, userId: singleRole.userId}});
+                    }
                 })
             )
         }

@@ -13,7 +13,6 @@ export interface UserAccessToken {
     email: string;
 }
 
-
 export const generateRefreshToken = (user: UserToken) => {
     return jwt.sign(user, process.env.REFRESH_SECRET_KEY as Secret, {
         expiresIn: '24h',

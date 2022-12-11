@@ -5,17 +5,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const sequelize_1 = require("sequelize");
 const index_1 = __importDefault(require("../index"));
-const userRole_model_1 = __importDefault(require("./userRole.model"));
 const center_model_1 = __importDefault(require("../center.model"));
-const Role = index_1.default.define('role', {
+const Lesson = index_1.default.define('lesson', {
     id: { type: sequelize_1.DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    name: { type: sequelize_1.DataTypes.STRING, allowNull: false },
+    color: { type: sequelize_1.DataTypes.STRING, defaultValue: 'blue' },
+    topic: { type: sequelize_1.DataTypes.STRING, defaultValue: '' },
+    status: { type: sequelize_1.DataTypes.STRING, defaultValue: 'pending' },
+    startTime: { type: sequelize_1.DataTypes.TIME },
+    endTime: { type: sequelize_1.DataTypes.TIME },
+    duration: { type: sequelize_1.DataTypes.INTEGER },
+    courseId: { type: sequelize_1.DataTypes.INTEGER },
     centerId: { type: sequelize_1.DataTypes.INTEGER, allowNull: false },
     createdAt: { type: sequelize_1.DataTypes.DATE },
     updatedAt: { type: sequelize_1.DataTypes.DATE }
 });
-center_model_1.default.hasMany(Role);
-Role.belongsTo(center_model_1.default);
-Role.hasMany(userRole_model_1.default);
-userRole_model_1.default.belongsTo(Role);
-exports.default = Role;
+center_model_1.default.hasMany(Lesson);
+Lesson.belongsTo(center_model_1.default);
+exports.default = Lesson;

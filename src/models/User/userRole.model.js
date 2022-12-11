@@ -10,7 +10,9 @@ const UserRole = index_1.default.define('user_role', {
     id: { type: sequelize_1.DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     roleId: { type: sequelize_1.DataTypes.INTEGER, allowNull: false },
     userId: { type: sequelize_1.DataTypes.INTEGER, allowNull: false },
-    centerId: { type: sequelize_1.DataTypes.INTEGER, allowNull: false }
+    centerId: { type: sequelize_1.DataTypes.INTEGER, allowNull: false },
+    createdAt: { type: sequelize_1.DataTypes.DATE },
+    updatedAt: { type: sequelize_1.DataTypes.DATE }
 });
 center_model_1.default.hasMany(UserRole);
 UserRole.belongsTo(center_model_1.default);

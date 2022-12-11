@@ -97,10 +97,16 @@ const login = (req, res, next) => __awaiter(void 0, void 0, void 0, function* ()
         if (!validPassword) {
             return next(api_error_1.ApiError.internal('Not valid password'));
         }
+        let usersRoles = [];
+        if (user.roles) {
+            user.roles.map(roleName => {
+                usersRoles.push(roleName.name);
+            });
+        }
         const insertUserJwt = {
             id: user.id,
             email: user.email,
-            roles: user.roles ? user.roles : [],
+            roles: user.roles ? usersRoles : [],
             layout: user.layout,
             center: user.centerId
         };
@@ -162,9 +168,14 @@ const createUser = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
 });
 exports.createUser = createUser;
 const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _b;
     try {
-        const { name, email, password, img, phone, layout, roles, centerId } = req.body;
+        const { name, email, password, img, phone, layout, roles } = req.body;
         const id = req.params.id;
+        let token = (_b = req.headers.authorization) === null || _b === void 0 ? void 0 : _b.split(' ')[1];
+        if (!token)
+            return res.status(401).json({ message: "Not authorized" });
+        const decoded = jsonwebtoken_1.default.verify(token, process.env.REFRESH_SECRET_KEY);
         (0, validation_1.validatePassword)(password);
         const hashPassword = yield bcrypt_1.default.hash(password, 5);
         const userUpdateData = {
@@ -178,11 +189,19 @@ const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         const user = yield user_model_1.default.update(Object.assign({}, userUpdateData), { where: { id }, returning: true });
         if (roles) {
             yield Promise.all(roles.map((roleName) => __awaiter(void 0, void 0, void 0, function* () {
-                yield role_model_1.default.findOrCreate({ where: { name: roleName, centerId: centerId } });
-                const foundRole = yield role_model_1.default.findOne({ where: { name: roleName, centerId: centerId } });
+                yield role_model_1.default.findOrCreate({ where: { name: roleName, centerId: decoded.center } });
+                const foundRole = yield role_model_1.default.findOne({ where: { name: roleName, centerId: decoded.center } });
                 yield userRole_model_1.default.findOrCreate({
-                    where: { userId: id, roleId: foundRole ? foundRole.id : undefined, centerId: centerId }
+                    where: { userId: id, roleId: foundRole ? foundRole.id : undefined, centerId: decoded.center }
                 });
+            })));
+        }
+        const usersRoles = yield userRole_model_1.default.findAll({ where: { userId: id }, include: [role_model_1.default] });
+        if (usersRoles) {
+            yield Promise.all(usersRoles.map((singleRole) => __awaiter(void 0, void 0, void 0, function* () {
+                if (!roles.includes(singleRole.role.name)) {
+                    yield userRole_model_1.default.destroy({ where: { roleId: singleRole.roleId, userId: singleRole.userId } });
+                }
             })));
         }
         return res.json(user);
@@ -225,10 +244,10 @@ const getOneUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 });
 exports.getOneUser = getOneUser;
 const deleteUser = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _b;
+    var _c;
     try {
         const id = req.params.id;
-        let token = (_b = req.headers.authorization) === null || _b === void 0 ? void 0 : _b.split(' ')[1];
+        let token = (_c = req.headers.authorization) === null || _c === void 0 ? void 0 : _c.split(' ')[1];
         if (!token)
             return res.status(401).json({ message: "Not authorized" });
         const decoded = jsonwebtoken_1.default.verify(token, process.env.REFRESH_SECRET_KEY);
